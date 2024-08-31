@@ -46,6 +46,7 @@ python main.py
 
 - **Iniciar Bot**: Inicia o processo de login e pesquisas automáticas.
 - **Excluir Logins Salvos**: Remove todos os logins salvos anteriormente.
+- **Alterar numero de pesquisas**: Personalização do número de pesquisas a serem realizadas.
 - **Backup de Logins**: Salva os logins atuais em um arquivo JSON externo.
 - **Restaurar Logins**: Carrega logins de um arquivo de backup.
 - **Escolher Tema**: Personaliza a aparência da interface.
