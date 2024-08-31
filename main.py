@@ -271,7 +271,7 @@ class BingLoginBot:
             driver.quit()
 
     def show_credits(self):
-        messagebox.showinfo("Créditos", "Desenvolvido por Gabriel Ricardo.")
+        messagebox.showinfo("Créditos", "Desenvolvido por Gabriel Ricardo.\nVersão 1.0"")
 
     def choose_theme(self):
         themes = ['clam', 'alt', 'default', 'classic']
