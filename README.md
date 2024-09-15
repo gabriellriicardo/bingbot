@@ -41,6 +41,7 @@ python main.py
 - Gerenciar logins salvos
 - Realizar backup/restauração de dados
 - Personalizar o tema
+- Escolher se deseja esconder ou exibir o navegador durante as pesquisas
 
 ## Funcionalidades Detalhadas 📊
 
@@ -50,6 +51,7 @@ python main.py
 - **Backup de Logins**: Salva os logins atuais em um arquivo JSON externo.
 - **Restaurar Logins**: Carrega logins de um arquivo de backup.
 - **Escolher Tema**: Personaliza a aparência da interface.
+- Esconder/Exibir Navegador: Permite ao usuário escolher se deseja ou não visualizar o navegador durante as pesquisas automáticas.
 
 ## Segurança 🔒
 
