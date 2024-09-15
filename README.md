@@ -4,8 +4,8 @@
 
 O Bing Login Bot é uma ferramenta automatizada desenvolvida em Python para realizar login e pesquisas no Bing. Este bot utiliza uma interface gráfica amigável e oferece funcionalidades como salvamento de logins, backup e restauração de dados, e personalização de temas. O bot ainda está em desenvolvimento, podendo haver bugs.
 
-![Bing Login Bot Screenshot1](https://github.com/gabriellriicardo/bingbot/blob/main/bingbot1.ng)
-![Bing Login Bot Screenshot2](https://github.com/gabriellriicardo/bingbot/blob/main/bingbot2.ng)
+![Bing Login Bot Screenshot1](https://github.com/gabriellriicardo/bingbot/blob/main/bingbot1.png)
+![Bing Login Bot Screenshot2](https://github.com/gabriellriicardo/bingbot/blob/main/bingbot2.png)
 
 ## Características 🌟
 
