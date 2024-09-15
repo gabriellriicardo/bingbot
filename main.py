@@ -74,6 +74,7 @@ class BingLoginBot:
         settings_menu.add_command(label="Backup de Logins", command=self.backup_logins)
         settings_menu.add_command(label="Restaurar Logins", command=self.restore_logins)
         settings_menu.add_command(label="Definir Número de Pesquisas", command=self.set_num_searches)
+        settings_menu.add_command(label="Exibir ou Esconder Navegador", command=self.set_browser_visibility)  # Nova opção adicionada
 
         help_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Sobre", menu=help_menu)
@@ -85,8 +86,18 @@ class BingLoginBot:
 
         self.update_time()
 
+        # Carregar configurações
+        self.config = self.load_config()
+
         # Número de pesquisas (padrão: 30)
-        self.num_searches = 30
+        self.num_searches = self.config.get("num_searches", 30)
+
+        # Visibilidade do navegador (padrão: exibir)
+        self.browser_visible = self.config.get("browser_visible", True)
+
+        # Tema
+        theme = self.config.get("theme", "Claro")
+        self.apply_theme(theme)
 
     def update_time(self):
         now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
@@ -205,115 +216,146 @@ class BingLoginBot:
         threading.Thread(target=self.run_bot, args=(email, senha, is_saved_login), daemon=True).start()
 
     def run_bot(self, email, senha, is_saved_login):
-        self.update_status("Iniciando o bot...")
+        self.update_status("Iniciando o navegador...")
         options = uc.ChromeOptions()
+        options.add_argument('--no-first-run')
+        options.add_argument('--no-service-autorun')
+        options.add_argument('--password-store=basic')
         options.add_argument('--ignore-certificate-errors')
         options.add_argument('--ignore-ssl-errors')
-        driver = uc.Chrome(options=options)
+        options.add_argument("--log-level=3")
+        options.add_argument("--start-maximized")
         
+        # Configura a visibilidade do navegador
+        if not self.browser_visible:
+            options.add_argument("--headless")
+            options.add_argument('--disable-gpu')
+            options.add_argument("--window-size=1920,1080")
+        
+        driver = uc.Chrome(options=options)
+
+        driver.get("https://login.live.com/")
+        self.update_status("Página de login carregada. Inserindo informações...")
+
+        email_box = WebDriverWait(driver, 30).until(
+            EC.presence_of_element_located((By.NAME, "loginfmt"))
+        )
+        email_box.send_keys(email)
+        email_box.send_keys(Keys.RETURN)
+        time.sleep(2)
+
+        senha_box = WebDriverWait(driver, 30).until(
+            EC.presence_of_element_located((By.NAME, "passwd"))
+        )
+        senha_box.send_keys(senha)
+        senha_box.send_keys(Keys.RETURN)
+        time.sleep(2)
+
         try:
-            self.update_status("Carregando página de login...")
-            driver.get("https://login.live.com/")
-            logging.info("Página de login carregada")
-
-            self.update_status("Inserindo email...")
-            email_field = WebDriverWait(driver, 30).until(
-                EC.presence_of_element_located((By.NAME, "loginfmt"))
+            nao_button = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.ID, "idBtn_Back"))
             )
-            email_field.send_keys(email)
-            logging.info("Email inserido")
-            
-            next_button = driver.find_element(By.ID, "idSIButton9")
-            next_button.click()
-            logging.info("Botão 'Próximo' clicado")
-            
-            self.update_status("Inserindo senha...")
-            password_field = WebDriverWait(driver, 30).until(
-                EC.presence_of_element_located((By.NAME, "passwd"))
-            )
-            password_field.send_keys(senha)
-            logging.info("Senha inserida")
-            
-            sign_in_button = driver.find_element(By.ID, "idSIButton9")
-            sign_in_button.click()
-            logging.info("Botão 'Entrar' clicado")
-            
-            time.sleep(5)
+            nao_button.click()
+            time.sleep(2)
+        except:
+            pass
 
-            try:
-                stay_signed_in_button = WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.ID, "idBtn_Back"))
-                )
-                stay_signed_in_button.click()
-            except:
-                logging.info("Botão 'Ficar conectado' não apareceu ou já foi tratado")
-            
-            if not is_saved_login:
-                # Pergunta ao usuário se deseja salvar o login apenas se não for um login já salvo
-                save_login = messagebox.askyesno("Salvar Login", "Deseja salvar este login para uso futuro?")
-                if save_login:
-                    if self.save_login(email, senha):
-                        self.update_status("Login salvo com sucesso!")
-                    else:
-                        self.update_status("Login já estava salvo!")
+        if not is_saved_login:
+            save_login = messagebox.askyesno("Salvar Login", "Deseja salvar este login?")
+            if save_login:
+                if self.save_login(email, senha):
+                    messagebox.showinfo("Sucesso", "Login salvo com sucesso!")
                 else:
-                    self.update_status("Login não foi salvo.")
-            else:
-                self.update_status("Usando login salvo.")
+                    messagebox.showwarning("Aviso", "Este login já está salvo.")
 
-            self.update_status("Realizando pesquisas...")
-            names = self.read_names_from_file('nomes.txt')
-            self.perform_searches(driver, names)
-        except Exception as e:
-            logging.error(f"Ocorreu um erro: {e}")
-            self.update_status(f"Ocorreu um erro: {e}")
-        finally:
-            driver.quit()
+        names = self.read_names_from_file()
+        self.perform_searches(driver, names)
 
-    def show_credits(self):
-        messagebox.showinfo("Créditos", "Desenvolvido por Gabriel Ricardo.\nVersão 1.0"")
+        self.update_status("Bot concluído!")
+        driver.quit()
 
     def choose_theme(self):
-        themes = ['clam', 'alt', 'default', 'classic']
-        selected_theme = simpledialog.askstring("Escolher Tema", f"Escolha um tema:\n{', '.join(themes)}")
-        if selected_theme in themes:
-            ttk.Style().theme_use(selected_theme)
+        themes = {
+            "Claro": ("#f0f0f0", "black"),
+            "Escuro": ("#2e2e2e", "white"),
+            "Aqua": ("#e0f7fa", "black"),
+        }
+        theme = simpledialog.askstring("Escolher Tema", "Digite o nome do tema (Claro, Escuro, Aqua):")
+        if theme and theme in themes:
+            self.config["theme"] = theme
+            self.save_config()
+            self.apply_theme(theme)
         else:
-            messagebox.showerror("Erro", "Tema inválido. Escolha um tema válido.")
+            messagebox.showwarning("Aviso", "Tema inválido!")
+
+    def apply_theme(self, theme):
+        themes = {
+            "Claro": ("#f0f0f0", "black"),
+            "Escuro": ("#2e2e2e", "white"),
+            "Aqua": ("#e0f7fa", "black"),
+        }
+        if theme in themes:
+            bg_color, fg_color = themes[theme]
+            self.master.configure(bg=bg_color)
+            self.frame.configure(style=f"{theme}.TFrame")
+            style = ttk.Style()
+            style.configure(f"{theme}.TFrame", background=bg_color)
+            style.configure(f"{theme}.TLabel", background=bg_color, foreground=fg_color)
+            style.configure(f"{theme}.TButton", background=bg_color, foreground=fg_color)
+            self.label.configure(style=f"{theme}.TLabel")
+            self.status_label.configure(style=f"{theme}.TLabel")
+            self.datetime_label.configure(style=f"{theme}.TLabel")
 
     def backup_logins(self):
-        logins = self.load_logins()
-        if logins:
-            backup_path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON files", "*.json")])
-            if backup_path:
-                with open(backup_path, 'w') as f:
-                    json.dump(logins, f)
-                messagebox.showinfo("Sucesso", "Backup realizado com sucesso!")
-        else:
-            messagebox.showinfo("Informação", "Não há logins salvos para fazer backup.")
+        backup_file = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON Files", "*.json")])
+        if backup_file:
+            logins = self.load_logins()
+            with open(backup_file, 'w') as f:
+                json.dump(logins, f)
+            messagebox.showinfo("Sucesso", "Backup realizado com sucesso!")
 
     def restore_logins(self):
-        backup_path = filedialog.askopenfilename(defaultextension=".json", filetypes=[("JSON files", "*.json")])
-        if backup_path:
-            try:
-                with open(backup_path, 'r') as f:
-                    logins = json.load(f)
-                with open(resource_path('logins.json'), 'w') as f:
-                    json.dump(logins, f)
-                messagebox.showinfo("Sucesso", "Logins restaurados com sucesso!")
-            except json.JSONDecodeError:
-                messagebox.showerror("Erro", "Arquivo de backup corrompido ou inválido.")
+        backup_file = filedialog.askopenfilename(filetypes=[("JSON Files", "*.json")])
+        if backup_file:
+            with open(backup_file, 'r') as f:
+                logins = json.load(f)
+            with open(resource_path('logins.json'), 'w') as f:
+                json.dump(logins, f)
+            messagebox.showinfo("Sucesso", "Logins restaurados com sucesso!")
 
     def set_num_searches(self):
-        new_num = simpledialog.askinteger("Definir Número de Pesquisas", 
-                                          "Digite o número de pesquisas desejado:", 
-                                          minvalue=1, 
-                                          initialvalue=self.num_searches)
-        if new_num:
-            self.num_searches = new_num
-            messagebox.showinfo("Sucesso", f"Número de pesquisas definido para {self.num_searches}.")
+        num_searches = simpledialog.askinteger("Definir Número de Pesquisas", "Digite o número de pesquisas (1-100):", minvalue=1, maxvalue=100)
+        if num_searches:
+            self.num_searches = num_searches
+            self.config["num_searches"] = num_searches
+            self.save_config()
+            messagebox.showinfo("Sucesso", f"Número de pesquisas definido para {num_searches}")
+
+    def set_browser_visibility(self):
+        visibility = messagebox.askyesno("Visibilidade do Navegador", "Deseja que o navegador seja exibido durante a execução?")
+        self.browser_visible = visibility
+        self.config["browser_visible"] = visibility
+        self.save_config()
+        messagebox.showinfo("Sucesso", f"Visibilidade do navegador definida para {'exibir' if visibility else 'esconder'}")
+
+    def show_credits(self):
+        messagebox.showinfo("Créditos", "Desenvolvido por:\nGabriel Ricardo\nVersão 1.24.3\n2024")
+
+    def load_config(self):
+        if os.path.exists(resource_path('config.json')):
+            with open(resource_path('config.json'), 'r') as f:
+                try:
+                    return json.load(f)
+                except json.JSONDecodeError:
+                    messagebox.showerror("Erro", "O arquivo de configuração está corrompido.")
+                    return {}
+        return {}
+
+    def save_config(self):
+        with open(resource_path('config.json'), 'w') as f:
+            json.dump(self.config, f)
 
 if __name__ == "__main__":
     root = tk.Tk()
-    bot = BingLoginBot(root)
+    app = BingLoginBot(root)
     root.mainloop()
